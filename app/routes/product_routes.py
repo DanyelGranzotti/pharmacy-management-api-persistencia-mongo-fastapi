@@ -3,6 +3,7 @@ from app.models.product import ProductModel, UpdateProductModel
 from app.repositories.product_repository import ProductRepository
 from app.models.common import PaginationParams
 from typing import Optional
+from datetime import datetime
 
 router = APIRouter()
 product_repository = ProductRepository()
@@ -67,3 +68,39 @@ async def delete_product(id: str):
     
     await product_repository.delete(id)
     return {"message": "Product deleted successfully"}
+
+@router.get("/products/analytics/with-supplier-details", response_description="Get products with supplier details")
+async def get_products_with_details(
+    page: int = Query(1, gt=0),
+    limit: int = Query(10, gt=0),
+    sort_by: Optional[str] = None,
+    sort_order: Optional[str] = "asc",
+    name: Optional[str] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
+):
+    pagination = PaginationParams(
+        page=page,
+        limit=limit,
+        sort_by=sort_by,
+        sort_order=sort_order
+    )
+    
+    filters = {}
+    if name:
+        filters["name"] = {"$regex": name, "$options": "i"}
+    if min_price is not None or max_price is not None:
+        filters["price"] = {}
+        if min_price is not None:
+            filters["price"]["$gte"] = min_price
+        if max_price is not None:
+            filters["price"]["$lte"] = max_price
+
+    return await product_repository.get_products_with_supplier_details(pagination, filters)
+
+@router.get("/products/analytics/sales", response_description="Get product sales analytics")
+async def get_sales_analytics(
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None)
+):
+    return await product_repository.get_product_sales_analytics(start_date, end_date)
