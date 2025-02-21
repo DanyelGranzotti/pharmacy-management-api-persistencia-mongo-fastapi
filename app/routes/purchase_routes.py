@@ -23,12 +23,22 @@ async def create_purchase(purchase: PurchaseModel):
     
     if product["quantity"] < purchase.quantity:
         raise HTTPException(status_code=400, detail="Insufficient product quantity")
+    
+    cost = product["price"] * purchase.quantity
 
+    if not user.get("bank_account"):
+        raise HTTPException(status_code=404, detail="User has no bank account")
+    
+    if user["bank_account"]["balance"] < cost:
+        raise HTTPException(status_code=400, detail="Insufficient funds in bank account")
+    
+    new_balance = user["bank_account"]["balance"] - cost
+    await user_repository.update_bank_balance(purchase.user_id, new_balance)
+    
     new_quantity = product["quantity"] - purchase.quantity
     await product_repository.update(purchase.product_id, {"quantity": new_quantity})
 
     purchase_id = await purchase_repository.create(purchase)
-    
     await user_repository.add_purchased_product(purchase.user_id, purchase.product_id)
     
     return {"_id": purchase_id}
