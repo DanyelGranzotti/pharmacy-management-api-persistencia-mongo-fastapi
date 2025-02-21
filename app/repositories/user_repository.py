@@ -4,6 +4,7 @@ from bson import ObjectId
 from datetime import datetime
 from app.repositories.base_repository import BaseRepository
 from app.models.common import PaginationParams
+from app.utils.mongo_utils import convert_mongo_document
 
 class UserRepository(BaseRepository):
     collection = database.users
@@ -21,15 +22,11 @@ class UserRepository(BaseRepository):
 
     async def get_by_id(self, id: str):
         user = await self.collection.find_one({"_id": ObjectId(id)})
-        if user:
-            user["_id"] = str(user["_id"])
-        return user
+        return convert_mongo_document(user)
 
     async def get_by_email(self, email: str):
         user = await self.collection.find_one({"email": email})
-        if user:
-            user["_id"] = str(user["_id"])
-        return user
+        return convert_mongo_document(user)
 
     async def update(self, id: str, data: dict):
         data["updated_at"] = datetime.utcnow()
@@ -79,10 +76,7 @@ class UserRepository(BaseRepository):
                 "items": [
                     {"$skip": skip},
                     {"$limit": pagination.limit},
-                    {"$replaceRoot": {"newRoot": "$product"}},
-                    {"$addFields": {
-                        "_id": {"$toString": "$_id"}
-                    }}
+                    {"$replaceRoot": {"newRoot": "$product"}}
                 ]
             }}
         ]
@@ -101,11 +95,8 @@ class UserRepository(BaseRepository):
         result = result[0]
         total = result["total"][0]["count"] if result["total"] else 0
         
-        # Convert any remaining ObjectIds to strings in the items
-        items = result["items"]
-        for item in items:
-            if "supplier_id" in item and isinstance(item["supplier_id"], ObjectId):
-                item["supplier_id"] = str(item["supplier_id"])
+        # Convert ObjectIds in items
+        items = [convert_mongo_document(item) for item in result["items"]]
         
         return {
             "total": total,

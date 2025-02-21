@@ -1,5 +1,6 @@
 from app.models.common import PaginationParams
 from typing import Dict, Any
+from app.utils.mongo_utils import convert_mongo_document
 
 class BaseRepository:
     async def paginate_and_filter(self, collection, pagination: PaginationParams, filters: Dict[str, Any] = None):
@@ -30,11 +31,8 @@ class BaseRepository:
         
         cursor = cursor.skip(skip).limit(pagination.limit)
         
-        # Get results
-        results = []
-        async for document in cursor:
-            document["_id"] = str(document["_id"])
-            results.append(document)
+        # Get results and convert documents
+        results = [convert_mongo_document(doc) async for doc in cursor]
 
         total_pages = (total + pagination.limit - 1) // pagination.limit
 
