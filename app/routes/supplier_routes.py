@@ -46,6 +46,27 @@ async def get_supplier(id: str):
         return supplier
     raise HTTPException(status_code=404, detail="Supplier not found")
 
+@router.get("/suppliers/{id}/products", response_description="Get all products from a supplier")
+async def get_supplier_products(
+    id: str,
+    page: int = Query(1, gt=0),
+    limit: int = Query(10, gt=0),
+    sort_by: Optional[str] = None,
+    sort_order: Optional[str] = "asc"
+):
+    supplier = await supplier_repository.get_by_id(id)
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    
+    pagination = PaginationParams(
+        page=page,
+        limit=limit,
+        sort_by=sort_by,
+        sort_order=sort_order
+    )
+    
+    return await supplier_repository.get_supplier_products(id, pagination)
+
 @router.put("/suppliers/{id}", response_description="Update a supplier")
 async def update_supplier(id: str, supplier: UpdateSupplierModel):
     existing_supplier = await supplier_repository.get_by_id(id)

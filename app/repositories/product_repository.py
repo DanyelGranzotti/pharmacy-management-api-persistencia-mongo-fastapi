@@ -1,5 +1,6 @@
 from typing import Dict, Any
-from bson import ObjectId
+from bson import ObjectId, errors
+from fastapi import HTTPException
 from app.models.product import ProductModel
 from app.models.common import PaginationParams
 from app.config.database import database
@@ -10,6 +11,23 @@ class ProductRepository:
     collection = database.products
 
     async def create(self, product: ProductModel) -> str:
+        try:
+            # Validar se o ID do fornecedor é um ObjectId válido
+            supplier_id = ObjectId(product.supplier_id)
+        except errors.InvalidId:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid supplier ID format"
+            )
+
+        # Verificar se o fornecedor existe
+        supplier = await database.suppliers.find_one({"_id": supplier_id})
+        if not supplier:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Supplier with ID {product.supplier_id} not found"
+            )
+            
         result = await self.collection.insert_one(product.model_dump())
         return str(result.inserted_id)
 
@@ -46,6 +64,11 @@ class ProductRepository:
         }
 
     async def update(self, id: str, update_data: Dict) -> Dict[str, Any]:
+        if "supplier_id" in update_data:
+            supplier = await database.suppliers.find_one({"_id": ObjectId(update_data["supplier_id"])})
+            if not supplier:
+                raise HTTPException(status_code=404, detail="Supplier not found")
+        
         update_data["updated_at"] = datetime.utcnow()
         await self.collection.update_one(
             {"_id": ObjectId(id)},
