@@ -118,3 +118,21 @@ class UserRepository(BaseRepository):
         """Get user's bank account information"""
         user = await self.get_by_id(user_id)
         return user.get("bank_account") if user else None
+
+    async def deposit(self, user_id: str, amount: float):
+        """Make a deposit to user's bank account"""
+        user = await self.get_by_id(user_id)
+        if not user or "bank_account" not in user:
+            return None
+            
+        current_balance = user["bank_account"]["balance"]
+        new_balance = current_balance + amount
+        
+        await self.collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {
+                "bank_account.balance": new_balance,
+                "updated_at": datetime.utcnow()
+            }}
+        )
+        return await self.get_by_id(user_id)
